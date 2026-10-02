@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#217346">
+<title>GridWorks — Excel-like Spreadsheet</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--green:#217346;--green-d:#1a5c38;--green-l:#e6f2eb;--bg:#f3f4f6;--panel:#fff;--border:#d4d7dc;--border-d:#b8bcc3;--text:#1f2937;--muted:#6b7280;--sel:#c9e7d4;--sel-b:#217346;--header:#f8f9fa;--warn:#fef3c7}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh;overflow:hidden;font-size:13px}
+/* Title bar */
+.titlebar{background:var(--green);color:#fff;display:flex;align-items:center;gap:10px;padding:6px 12px;flex:0 0 auto}
+.logo{width:28px;height:28px;background:#fff;border-radius:4px;display:grid;place-items:center;font-weight:900;color:var(--green);font-size:18px}
+.titlebar .fname{font-weight:600;font-size:14px;background:transparent;border:1px solid transparent;color:#fff;padding:2px 8px;border-radius:4px;min-width:120px}
+.titlebar .fname:hover{border-color:#ffffff66}.titlebar .fname:focus{background:#fff;color:#111;outline:none}
+.titlebar .sp{flex:1}
+.tbtn{background:#ffffff22;border:1px solid #ffffff33;color:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px}
+.tbtn:hover{background:#ffffff44}
+.tbtn:disabled{opacity:.4;cursor:default}
+/* Ribbon */
+.ribbon{background:var(--panel);border-bottom:1px solid var(--border);flex:0 0 auto}
+.rtabs{display:flex;gap:2px;padding:4px 10px 0}
+.rtab{border:none;background:none;padding:7px 14px;font-size:13px;cursor:pointer;border-radius:6px 6px 0 0;color:#374151}
+.rtab.active{background:var(--green-l);color:var(--green-d);font-weight:600}
+.rpanels{border-top:1px solid var(--border);padding:6px 10px;display:flex;gap:14px;align-items:stretch;flex-wrap:wrap;min-height:64px}
+.rpanel{display:none;gap:14px;align-items:stretch;flex-wrap:wrap;width:100%}
+.rpanel.active{display:flex}
+.rgroup{display:flex;flex-direction:column;gap:4px;padding:2px 12px 2px 0;border-right:1px solid var(--border)}
+.rgroup:last-child{border-right:none}
+.rgroup .glabel{font-size:10px;color:var(--muted);text-align:center}
+.rrow{display:flex;gap:4px;align-items:center}
+.btn{border:1px solid var(--border);background:#fff;border-radius:5px;padding:5px 8px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;gap:5px;min-height:28px}
+.btn:hover{background:#f0f7f2;border-color:var(--green)}
+.btn.on{background:var(--green);color:#fff;border-color:var(--green)}
+.btn.sm{padding:3px 7px;min-height:24px}
+.btn b{font-size:13px}
+select.btn,input.btn{cursor:pointer}
+input[type=color].clr{width:28px;height:28px;padding:1px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer}
+/* Formula bar */
+.fbar{background:var(--panel);display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--border);flex:0 0 auto}
+#nameBox{width:70px;border:1px solid var(--border);border-radius:4px;padding:5px 6px;font-size:12px;text-align:center}
+#fx{color:var(--muted);font-style:italic;font-weight:700}
+#formulaInput{flex:1;border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:13px;font-family:Consolas,monospace}
+#formulaInput:focus{outline:2px solid var(--green);border-color:var(--green)}
+.fstat{font-size:11px;color:var(--muted);white-space:nowrap}
+/* Grid */
+.gridwrap{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;background:#fff}
+.gridscroll{flex:1;overflow:auto;position:relative;background:#fff}
+table.grid{border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:12px;user-select:none}
+table.grid th,table.grid td{border-right:1px solid #e1e4e8;border-bottom:1px solid #e1e4e8;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.corner{position:sticky;top:0;left:0;z-index:30;background:#e8ebee!important;min-width:44px;width:44px;text-align:center;cursor:pointer;font-size:11px}
+.colh{position:sticky;top:0;z-index:20;background:var(--header)!important;text-align:center;font-weight:600;color:#4b5563;cursor:pointer;height:24px;min-height:24px;font-size:11px;padding:0 4px}
+.colh.sel,.rowh.sel{background:#cfe8d8!important;color:var(--green-d)!important}
+.rowh{position:sticky;left:0;z-index:10;background:var(--header)!important;text-align:center;font-weight:400;color:#4b5563;width:44px;min-width:44px;cursor:pointer;font-size:11px}
+.cell{background:#fff;padding:2px 5px;cursor:cell;position:relative}
+.cell .cvin{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}
+.cell.wrap .cvin{white-space:normal;word-break:break-word}
+.cell.active{outline:2px solid var(--green)!important;outline-offset:-2px;z-index:5}
+.cell.inrange{background:#e8f4ec!important}
+.cell.inrange.active{background:#fff!important}
+.cell.err .cvin{color:#dc2626}
+.cell .dd-arrow{position:absolute;right:1px;top:50%;transform:translateY(-50%);font-size:9px;color:#666;pointer-events:none}
+.copied{outline:2px dashed var(--green)!important;outline-offset:-2px}
+/* editor */
+#celledit{position:absolute;display:none;z-index:50;border:2px solid var(--green);font-family:inherit;padding:1px 4px;resize:none;overflow:hidden;background:#fff}
+/* sheets bar */
+.sheetbar{background:#eef0f2;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;padding:4px 10px;flex:0 0 auto}
+.snav{border:1px solid var(--border);background:#fff;border-radius:4px;padding:2px 8px;cursor:pointer}
+#sheetTabs{display:flex;gap:4px;overflow-x:auto;flex:1;padding:2px}
+.shtab{border:1px solid var(--border);background:#fff;border-bottom:3px solid transparent;border-radius:6px 6px 0 0;padding:4px 14px;cursor:pointer;white-space:nowrap;font-size:12px;display:flex;gap:6px;align-items:center}
+.shtab.active{border-bottom-color:var(--green);font-weight:700;color:var(--green-d)}
+.shtab .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+/* status bar */
+.statusbar{background:var(--green);color:#fff;display:flex;gap:16px;padding:4px 12px;font-size:12px;flex:0 0 auto;align-items:center}
+.statusbar .st{opacity:.95}
+.statusbar input[type=range]{accent-color:#fff;width:110px}
+/* dialogs */
+.overlay{position:fixed;inset:0;background:#0008;display:none;place-items:center;z-index:200}
+.overlay.open{display:grid}
+.dialog{background:#fff;border-radius:10px;min-width:340px;max-width:640px;max-height:85vh;overflow:auto;box-shadow:0 20px 60px #0005}
+.dialog header{background:var(--green);color:#fff;padding:10px 14px;font-weight:600;display:flex;justify-content:space-between;align-items:center;border-radius:10px 10px 0 0}
+.dialog .dbody{padding:14px;display:flex;flex-direction:column;gap:10px}
+.dialog footer{padding:10px 14px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--border)}
+.dialog label{font-size:12px;font-weight:600}
+.dialog input[type=text],.dialog input[type=number],.dialog select,.dialog textarea{border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:13px;width:100%}
+.xbtn{background:none;border:none;color:#fff;font-size:16px;cursor:pointer}
+/* context menu */
+#ctx{position:fixed;display:none;z-index:300;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px #0003;min-width:190px;padding:4px}
+#ctx button{display:flex;width:100%;border:none;background:none;padding:7px 10px;font-size:12px;cursor:pointer;border-radius:5px;text-align:left;gap:8px}
+#ctx button:hover{background:var(--green-l)}
+#ctx hr{border:none;border-top:1px solid var(--border);margin:4px 0}
+/* toast */
+#toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:9px 16px;border-radius:8px;display:none;z-index:400;font-size:13px;box-shadow:0 8px 20px #0005}
+/* chart */
+#chartCanvas{border:1px solid var(--border);border-radius:8px;background:#fff;width:100%}
+/* dropdown list popup */
+#ddlist{position:fixed;display:none;z-index:300;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 20px #0003;max-height:180px;overflow:auto;min-width:140px}
+#ddlist button{display:block;width:100%;text-align:left;border:none;background:none;padding:6px 10px;cursor:pointer;font-size:12px}
+#ddlist button:hover{background:var(--green-l)}
+.kbd{font-family:monospace;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;padding:0 5px;font-size:11px}
+table.keys{border-collapse:collapse;width:100%;font-size:12px}
+table.keys td{border-bottom:1px solid #eee;padding:5px 4px}
+/* ---- mobile nav bar (hidden on desktop) ---- */
+#mobileBar{display:none}
+#ribbonToggle{display:none}
+/* ================= MOBILE ================= */
+@media (max-width:820px){
+  body{font-size:14px;-webkit-text-size-adjust:100%}
+  .titlebar{gap:6px;padding:6px 8px;padding-top:calc(6px + env(safe-area-inset-top,0px))}
+  .titlebar .fname{font-size:13px;min-width:0;max-width:34vw;flex:1}
+  .titlebar span[style]{display:none}
+  .tbtn{padding:8px 10px;font-size:13px;min-height:38px}
+  #btnHelpTop{display:none}
+  .ribbon{position:relative}
+  .rtabs{overflow-x:auto;padding:4px 6px 0;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .rtabs::-webkit-scrollbar{display:none}
+  .rtab{padding:10px 16px;font-size:14px;flex:0 0 auto;min-height:42px}
+  #ribbonToggle{display:inline-flex;margin-left:auto;flex:0 0 auto;border:none;background:none;font-size:16px;padding:8px 12px;cursor:pointer;color:var(--green-d)}
+  body.ribbon-collapsed .rpanels{display:none}
+  .rpanels{padding:6px;gap:8px;max-height:32vh;overflow:auto;-webkit-overflow-scrolling:touch}
+  .rpanel{overflow-x:auto}
+  .rgroup{padding:2px 8px 2px 0}
+  .rgroup .glabel{display:none}
+  .rrow{flex-wrap:wrap}
+  .btn{min-height:38px;padding:8px 12px;font-size:14px;touch-action:manipulation}
+  .btn.sm{min-height:36px;padding:7px 10px}
+  select.btn{max-width:38vw}
+  input[type=color].clr{width:38px;height:38px}
+  .fbar{gap:6px;padding:6px 8px;flex-wrap:nowrap}
+  #nameBox{width:58px;min-height:38px;font-size:14px;flex:0 0 auto}
+  #fx{display:none}
+  #formulaInput{font-size:16px;padding:9px 10px;min-height:40px}
+  .fstat{display:none}
+  .gridscroll{-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;overscroll-behavior:contain}
+  table.grid{font-size:13px}
+  .corner{min-width:40px;width:40px}
+  .colh{height:34px;min-height:34px;font-size:12px;padding:6px 4px;touch-action:manipulation}
+  .rowh{width:40px;min-width:40px;font-size:12px;touch-action:manipulation}
+  .cell{padding:8px 6px;min-height:36px;touch-action:manipulation;-webkit-tap-highlight-color:rgba(33,115,70,.25)}
+  #celledit{font-size:16px!important;padding:8px!important;line-height:1.4}
+  .sheetbar{gap:4px;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));overflow-x:auto}
+  .snav{min-width:40px;min-height:38px;font-size:15px}
+  .shtab{padding:8px 14px;font-size:13px;min-height:38px}
+  .statusbar{gap:8px;font-size:11px;padding:6px 8px;overflow-x:auto;white-space:nowrap}
+  #stAgg{display:none}
+  .overlay{place-items:end center;padding:0}
+  .dialog{min-width:0;width:100%;max-width:100%;border-radius:14px 14px 0 0;max-height:92vh;max-height:92dvh}
+  .dialog header{border-radius:14px 14px 0 0;padding:14px}
+  #ctx{min-width:220px}
+  #ctx button{padding:12px;font-size:14px;min-height:44px}
+  #toast{bottom:120px;max-width:92vw;text-align:center}
+  #mobileBar{display:flex;gap:4px;align-items:center;background:var(--panel);border-top:1px solid var(--border);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));flex:0 0 auto;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  #mobileBar button{flex:1 0 auto;min-width:44px;min-height:42px;border:1px solid var(--border);background:#fff;border-radius:8px;font-size:16px;cursor:pointer;touch-action:manipulation}
+  #mobileBar button:active{background:var(--green-l)}
+  #mobileBar button.primary{background:var(--green);color:#fff;border-color:var(--green)}
+}
+@media (max-width:820px) and (orientation:landscape){
+  .rpanels{max-height:44vh}
+}
+@media print{.titlebar,.ribbon,.fbar,.sheetbar,.statusbar,#mobileBar,#celledit,#ctx,.overlay,#toast{display:none!important}body{overflow:visible;height:auto}.gridwrap{overflow:visible}.gridscroll{overflow:visible}}
+</style>
+</head>
+<body>
+<div class="titlebar">
+  <div class="logo">X</div>
+  <input class="fname" id="fileName" value="Untitled workbook" title="Workbook name">
+  <span style="font-size:11px;opacity:.85">GridWorks Sheets • autosaved locally</span>
+  <div class="sp"></div>
+  <button class="tbtn" id="btnSave" title="Save to browser (Ctrl+S)">💾 Save</button>
+  <button class="tbtn" id="btnUndoTop" title="Undo (Ctrl+Z)">↩ Undo</button>
+  <button class="tbtn" id="btnRedoTop" title="Redo (Ctrl+Y)">↪ Redo</button>
+  <button class="tbtn" id="btnHelpTop" title="Help & shortcuts">? Help</button>
+</div>
+<div class="ribbon">
+  <div class="rtabs" id="rtabs">
+    <button class="rtab active" data-t="home">Home</button>
+    <button class="rtab" data-t="insert">Insert</button>
+    <button class="rtab" data-t="formulas">Formulas</button>
+    <button class="rtab" data-t="data">Data</button>
+    <button class="rtab" data-t="view">View</button>
+    <button id="ribbonToggle" title="Show/hide toolbar">▲</button>
+  </div>
+  <div class="rpanels">
+    <div class="rpanel active" data-p="home">
+      <div class="rgroup"><div class="rrow">
+        <button class="btn" id="btnPaste" title="Paste (Ctrl+V)">📋 Paste</button>
+        <button class="btn sm" id="btnCut" title="Cut (Ctrl+X)">✂</button>
+        <button class="btn sm" id="btnCopy" title="Copy (Ctrl+C)">⧉</button>
+      </div><div class="glabel">Clipboard</div></div>
+      <div class="rgroup"><div class="rrow">
+        <select class="btn" id="fontFam" title="Font"><option>Arial</option><option>Calibri</option><option>Georgia</option><option>Consolas</option><option>Times New Roman</option><option>Verdana</option></select>
+        <select class="btn" id="fontSize" title="Size"><option>9</option><option>10</option><option>11</option><option selected>12</option><option>14</option><option>16</option><option>18</option><option>20</option><option>24</option></select>
+      </div><div class="rrow">
+        <button class="btn sm" id="btnB" title="Bold (Ctrl+B)"><b>B</b></button>
+        <button class="btn sm" id="btnI" title="Italic (Ctrl+I)"><i>I</i></button>
+        <button class="btn sm" id="btnU" title="Underline (Ctrl+U)"><u>U</u></button>
+        <button class="btn sm" id="btnS" title="Strikethrough"><s>S</s></button>
+        <input type="color" class="clr" id="fontColor" value="#111111" title="Font color">
+        <input type="color" class="clr" id="fillColor" value="#ffff00" title="Fill color">
+        <button class="btn sm" id="btnFill" title="Apply fill">🪣</button>
+      </div><div class="glabel">Font</div></div>
+      <div class="rgroup"><div class="rrow">
+        <button class="btn sm" id="alL" title="Align left">⬅</button>
+        <button class="btn sm" id="alC" title="Center">↔</button>
+        <button class="btn sm" id="alR" title="Align right">➡</button>
+        <button class="btn sm" id="btnWrap" title="Wrap text">↩</button>
+        <button class="btn sm" id="btnMerge" title="Merge / unmerge">🔗</button>
+      </div><div class="rrow">
+        <select class="btn" id="numFmt" title="Number format">
+          <option value="general">General</option><option value="number">Number</option><option value="currency">Currency</option><option value="percent">Percent</option><option value="date">Date</option><option value="int">Integer</option>
+        </select>
+        <button class="btn sm" id="decUp" title="More decimals">.0+</button>
+        <button class="btn sm" id="decDown" title="Fewer decimals">.0−</button>
+        <button class="btn sm" id="btnClearFmt" title="Clear formatting">🧹</button>
+      </div><div class="glabel">Alignment & Number</div></div>
+      <div class="rgroup"><div class="rrow">
+        <button class="btn sm" id="btnFind" title="Find & replace (Ctrl+F)">🔍 Find</button>
+        <button class="btn sm" id="btnSortAZ" title="Sort A→Z">A↓Z</button>
+        <button class="btn sm" id="btnSortZA" title="Sort Z→A">Z↓A</button>
+      </div><div class="rrow">
+        <button class="btn sm" id="btnBorder" title="Toggle borders">▦ Border</button>
+        <button class="btn sm" id="btnCF" title="Conditional formatting">✨ Rules</button>
+      </div><div class="glabel">Editing</div></div>
+    </div>
+    <div class="rpanel" data-p="insert">
+      <div class="rgroup"><div class="rrow">
+        <button class="btn" id="btnChart">📊 Chart from selection</button>
+        <button class="btn" id="btnInsRow">➕ Row</button>
+        <button class="btn" id="btnInsCol">➕ Column</button>
+      </div><div class="rrow">
+        <button class="btn sm" id="btnDelRow">➖ Del row</button>
+        <button class="btn sm" id="btnDelCol">➖ Del col</button>
+        <button class="btn sm" id="btnDropdown">▼ Dropdown list</button>
+        <button class="btn sm" id="btnLink">🔗 Link</button>
+      </div><div class="glabel">Insert / Structure</div></div>
+      <div class="rgroup"><div class="rrow">
+        <button class="btn" id="btnImageNote">🖼 Note</button>
+        <button class="btn" id="btnSymbol">Ω Symbol</button>
+      </div><div class="glabel">Extras</div></div>
+    </div>
+    <div class="rpanel" data-p="formulas">
+      <div class="rgroup"><div class="rrow">
+        <button class="btn" id="btnAutoSum" title="SUM selected">Σ AutoSum</button>
+        <button class="btn" id="btnAvgF" title="AVERAGE">⌀ Avg</button>
+        <button class="btn" id="btnInsertFn">fx Insert function</button>
+      </div><div class="rrow" id="fnQuick"></div><div class="glabel">Functions (all evaluate live; see Help for list)</div></div>
+    </div>
+    <div class="rpanel" data-p="data">
+      <div class="rgroup"><div class="rrow">
+        <button class="btn" id="btnSortAZ2">Sort A→Z</button>
+        <button class="btn" id="btnSortZA2">Sort Z→A</button>
+        <button class="btn" id="btnFilter">🎛 Filter</button>
+        <button class="btn" id="btnFreeze">❄ Freeze top row</button>
+      </div><div class="rrow">
+        <button class="btn sm" id="btnValidate">✓ Validation</button>
+        <button class="btn sm" id="btnDeDup">⧉ Remove duplicates</button>
+        <button class="btn sm" id="btnTrim">Trim spaces</button>
+        <button class="btn sm" id="btnFillDown">⬇ Fill down</button>
+        <button class="btn sm" id="btnFillRight">➡ Fill right</button>
+      </div><div class="glabel">Sort • Filter • Clean</div></div>
+      <div class="rgroup"><div class="rrow">
+        <button class="btn" id="btnImportCSV">📥 Import CSV</button>
+        <button class="btn" id="btnExportCSV">📤 Export CSV</button>
+      </div><div class="rrow">
+        <button class="btn sm" id="btnExportJSON">Export JSON</button>
+        <button class="btn sm" id="btnImportJSON">Import JSON</button>
+        <button class="btn sm" id="btnPrint">🖨 Print</button>
+      </div><div class="glabel">Import / Export</div></div>
+    </div>
+    <div class="rpanel" data-p="view">
+      <div class="rgroup"><div class="rrow">
+        <button class="btn sm" id="btnGridlines">Gridlines: On</button>
+        <button class="btn sm" id="btnFreeze2">Freeze 1st col</button>
+        <button class="btn sm" id="btnFullRows">+100 rows</button>
+        <button class="btn sm" id="btnFullCols">+10 cols</button>
+      </div><div class="rrow">
+        <span style="font-size:12px">Zoom <span id="zoomLbl">100%</span></span>
+        <input type="range" id="zoom" min="60" max="160" value="100" style="width:130px">
+        <button class="btn sm" id="btnDark">🌙 Dark</button>
+      </div><div class="glabel">View</div></div>
+    </div>
+  </div>
+</div>
+<div class="fbar">
+  <input id="nameBox" value="A1" title="Name box / Go to (Enter)">
+  <span id="fx">fx</span>
+  <input id="formulaInput" placeholder="Type a value or formula starting with =" spellcheck="false">
+  <span class="fstat" id="fstat"></span>
+</div>
+<div class="gridwrap">
+  <div class="gridscroll" id="scroll"><table class="grid" id="grid"></table></div>
+  <textarea id="celledit"></textarea>
+</div>
+<div class="sheetbar">
+  <button class="snav" id="sheetLeft">◀</button>
+  <button class="snav" id="sheetRight">▶</button>
+  <button class="snav" id="sheetAdd" title="Add sheet">＋</button>
+  <div id="sheetTabs"></div>
+  <button class="snav" id="sheetMenu" title="Sheet actions">⋯</button>
+</div>
+<div class="statusbar">
+  <span class="st" id="stReady">Ready</span>
+  <span class="st" id="stSel">—</span>
+  <span class="st" id="stAgg"></span>
+  <div style="flex:1"></div>
+  <span class="st" id="stSheets"></span>
+  <span class="st">Zoom <span id="stZoom">100%</span></span>
+</div>
+<nav id="mobileBar" aria-label="Mobile spreadsheet controls">
+  <button data-m="left" title="Move left">◀</button>
+  <button data-m="up" title="Move up">▲</button>
+  <button data-m="down" title="Move down">▼</button>
+  <button data-m="right" title="Move right">▶</button>
+  <button data-m="edit" class="primary" title="Edit cell (tap cell twice also works)">✏️ Edit</button>
+  <button data-m="sum" title="AutoSum">Σ</button>
+  <button data-m="tab" title="Next cell">⇥</button>
+  <button data-m="menu" title="More actions">⋯</button>
+</nav>
+<div class="overlay" id="ovFind"><div class="dialog"><header>Find & Replace <button class="xbtn" data-x>✕</button></header><div class="dbody">
+<label>Find</label><input type="text" id="findWhat" placeholder="e.g. total"><label>Replace with</label><input type="text" id="findWith" placeholder="leave empty to just find">
+<label><input type="checkbox" id="findMatch"> Match case</label>
+<div id="findCount" style="font-size:12px;color:#666"></div>
+</div><footer><button class="btn" id="btnFindNext">Find next</button><button class="btn" id="btnReplaceOne">Replace</button><button class="btn" id="btnReplaceAll">Replace all</button></footer></div></div>
+<div class="overlay" id="ovFn"><div class="dialog"><header>Insert function <button class="xbtn" data-x>✕</button></header><div class="dbody">
+<label>Search</label><input type="text" id="fnSearch" placeholder="Type SUM, IF, VLOOKUP..."><label>Function</label><select id="fnList" size="8" style="min-height:150px"></select>
+<div id="fnHelp" style="font-size:12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px"></div>
+</div><footer><button class="btn" id="btnFnInsert2" style="background:var(--green);color:#fff">Insert</button></footer></div></div>
+<div class="overlay" id="ovChart"><div class="dialog" style="min-width:560px"><header>Chart from selection <button class="xbtn" data-x>✕</button></header><div class="dbody">
+<div style="display:flex;gap:8px"><select id="chartType"><option value="bar">Bar</option><option value="line">Line</option><option value="pie">Pie</option></select><input type="text" id="chartRange" title="Range like A1:B8"><button class="btn" id="btnChartDraw">Draw</button><button class="btn" id="btnChartPng">⬇ PNG</button></div>
+<canvas id="chartCanvas" width="520" height="300"></canvas>
+<div style="font-size:11px;color:#666">Tip: select numbers (e.g. B2:B10 with labels in A2:A10) then open this dialog.</div>
+</div></div></div>
+<div class="overlay" id="ovCF"><div class="dialog"><header>Conditional formatting <button class="xbtn" data-x>✕</button></header><div class="dbody">
+<label>Applies to range (e.g. B2:B50)</label><input type="text" id="cfRange">
+<div style="display:flex;gap:6px"><select id="cfOp"><option value="gt">greater than</option><option value="lt">less than</option><option value="eq">equal to</option><option value="between">between</option></select><input type="text" id="cfVal" placeholder="value or v1,v2"></div>
+<div style="display:flex;gap:6px"><input type="color" id="cfBg" value="#fecaca" title="background"><input type="color" id="cfFg" value="#991b1b" title="text"><button class="btn" id="btnCFAdd">Add rule</button></div>
+<div id="cfList" style="font-size:12px"></div>
+</div></div></div>
+<div class="overlay" id="ovHelp"><div class="dialog" style="min-width:560px"><header>Help — formulas & shortcuts <button class="xbtn" data-x>✕</button></header><div class="dbody">
+<div style="font-size:12px"><b>Formulas start with =</b>. Examples: <span class="kbd">=A1+B2</span> <span class="kbd">=SUM(A1:A10)</span> <span class="kbd">=IF(A1&gt;10,"big","small")</span> <span class="kbd">=A1*0.2</span></div>
+<div style="font-size:12px"><b>Functions:</b> SUM AVERAGE MIN MAX COUNT COUNTA PRODUCT ABS ROUND INT MOD POWER SQRT IF AND OR NOT CONCAT UPPER LOWER LEN LEFT RIGHT MID TRIM TODAY NOW DATE YEAR MONTH DAY WEEKDAY SUMIF COUNTIF VLOOKUP XLOOKUP-LITE ABS SIGN CEILING FLOOR</div>
+<table class="keys">
+<tr><td><span class="kbd">Arrows / Tab / Enter</span></td><td>Move selection</td></tr>
+<tr><td><span class="kbd">F2</span> or double-click</td><td>Edit cell</td></tr>
+<tr><td><span class="kbd">Ctrl+C X V</span></td><td>Copy / cut / paste</td></tr>
+<tr><td><span class="kbd">Ctrl+Z / Ctrl+Y</span></td><td>Undo / redo</td></tr>
+<tr><td><span class="kbd">Ctrl+B I U</span></td><td>Bold / italic / underline</td></tr>
+<tr><td><span class="kbd">Ctrl+F</span></td><td>Find & replace</td></tr>
+<tr><td><span class="kbd">Ctrl+S</span></td><td>Save to browser</td></tr>
+<tr><td><span class="kbd">Delete</span></td><td>Clear contents</td></tr>
+<tr><td><span class="kbd">Shift+Click / Shift+Arrows</span></td><td>Extend selection</td></tr>
+</table>
+</div></div></div>
+<div id="ctx"></div>
+<div id="ddlist"></div>
+<div id="toast"></div>
+<input type="file" id="filePick" accept=".csv,.json,.txt" style="display:none">
+<script>
+"use strict";
+/* ============ utils ============ */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",2200);}
+function colL(i){let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;}
+function colI(a){let n=0;for(const ch of a.toUpperCase())n=n*26+(ch.charCodeAt(0)-64);return n-1;}
+function addr(r,c){return colL(c)+(r+1);}
+function parseAddr(a){const m=/^(\$?)([A-Za-z]+)(\$?)(\d+)$/.exec(a.trim());if(!m)return null;return{r:parseInt(m[4],10)-1,c:colI(m[2])};}
+function parseRange(s){const p=s.split(":").map(x=>x.trim());if(p.length===1){const a=parseAddr(p[0]);return a?{rs:a.r,cs:a.c,re:a.r,ce:a.c}:null;}const a=parseAddr(p[0]),b=parseAddr(p[1]);if(!a||!b)return null;return{rs:Math.min(a.r,b.r),cs:Math.min(a.c,b.c),re:Math.max(a.r,b.r),ce:Math.max(a.c,b.c)};}
+function esc(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function clone(o){return JSON.parse(JSON.stringify(o));}
+function fmtNum(v,f,dec){if(v===""||v==null||isNaN(Number(v)))return String(v??"");const n=Number(v);if(f==="currency")return "$"+n.toLocaleString(undefined,{minimumFractionDigits:dec??2,maximumFractionDigits:dec??2});if(f==="percent")return (n*100).toFixed(dec??1)+"%";if(f==="int")return String(Math.round(n));if(f==="number")return n.toLocaleString(undefined,{minimumFractionDigits:dec??0,maximumFractionDigits:dec??2});if(f==="date"){const d=n>30000?new Date((n-25569)*86400*1000):new Date(n);if(!isNaN(d))return d.toLocaleDateString();}return String(v);}
+/* ============ state ============ */
+let ROWS=120,COLS=30;
+let wb={name:"Untitled workbook",sheets:[],active:0};
+let sel={r:0,c:0,rs:0,cs:0,re:0,ce:0};
+let undoStack=[],redoStack=[],clipboard=null,clipCut=false;
+let showGrid=true,frozenRows=0,frozenCols=0,filterOn=false,filterTxt={},dark=false;
+function newSheet(name){return{name:name||("Sheet"+(wb.sheets.length+1)),cells:{},merges:[],colW:{},rowH:{},cf:[],valid:{},notes:{},links:{}};}
+function S(){return wb.sheets[wb.active];}
+function key(r,c){return r+":"+c;}
+function getCell(r,c){return S().cells[key(r,c)]||null;}
+function getRaw(r,c){const x=getCell(r,c);return x?x.v:"";}
+function setRaw(r,c,v,style){const k=key(r,c);if((v===""||v==null)&&!style&&!S().cells[k])return;const cur=S().cells[k]||{v:"",s:{}};cur.v=v??"";if(style)cur.s=Object.assign(cur.s||{},style);if(cur.v===""&&(!cur.s||!Object.keys(cur.s).length)&&!cur.dropdown)S().cells[k]===undefined||delete S().cells[k];else S().cells[k]=cur;}
+function pushUndo(){undoStack.push(JSON.stringify({sheets:wb.sheets,active:wb.active,ROWS,COLS}));if(undoStack.length>60)undoStack.shift();redoStack=[];}
+function doUndo(){if(!undoStack.length)return toast("Nothing to undo");redoStack.push(JSON.stringify({sheets:wb.sheets,active:wb.active,ROWS,COLS}));const o=JSON.parse(undoStack.pop());wb.sheets=o.sheets;wb.active=o.active;ROWS=o.ROWS;COLS=o.COLS;renderAll();toast("Undone");}
+function doRedo(){if(!redoStack.length)return toast("Nothing to redo");undoStack.push(JSON.stringify({sheets:wb.sheets,active:wb.active,ROWS,COLS}));const o=JSON.parse(redoStack.pop());wb.sheets=o.sheets;wb.active=o.active;ROWS=o.ROWS;COLS=o.COLS;renderAll();toast("Redone");}
+/* ============ formula engine ============ */
+const FN={
+SUM:(a,ctx)=>flatV(a,ctx).filter(isN).reduce((x,y)=>x+Number(y),0),AVERAGE:(a,ctx)=>{const f=flatV(a,ctx).filter(isN).map(Number);return f.length?f.reduce((x,y)=>x+y,0)/f.length:0;},
+MIN:(a,ctx)=>{const f=flatV(a,ctx).filter(isN).map(Number);return f.length?Math.min(...f):0;},MAX:(a,ctx)=>{const f=flatV(a,ctx).filter(isN).map(Number);return f.length?Math.max(...f):0;},
+COUNT:(a,ctx)=>flatV(a,ctx).filter(isN).length,COUNTA:(a,ctx)=>flatV(a,ctx).filter(x=>x!==""&&x!=null).length,
+PRODUCT:(a,ctx)=>flatV(a,ctx).filter(isN).reduce((x,y)=>x*Number(y),1),ABS:a=>Math.abs(N(a[0])),ROUND:(a)=>{const n=N(a[0]),d=a.length>1?N(a[1]):0;return Number(n.toFixed(d));},
+INT:a=>Math.floor(N(a[0])),MOD:a=>N(a[0])%N(a[1]),POWER:(a)=>Math.pow(N(a[0]),N(a[1])),SQRT:a=>Math.sqrt(N(a[0])),SIGN:a=>Math.sign(N(a[0])),CEILING:a=>Math.ceil(N(a[0])),FLOOR:a=>Math.floor(N(a[0])),
+IF:a=>isT(a[0])?a[1]:a[2],AND:(a,ctx)=>flatV(a,ctx).every(isT),OR:(a,ctx)=>flatV(a,ctx).some(isT),NOT:a=>!isT(a[0]),
+CONCAT:(a,ctx)=>flatV(a,ctx).map(x=>x??"").join(""),CONCATENATE:(a,ctx)=>flatV(a,ctx).map(x=>x??"").join(""),UPPER:a=>String(a[0]??"").toUpperCase(),LOWER:a=>String(a[0]??"").toLowerCase(),
+LEN:a=>String(a[0]??"").length,LEFT:(a)=>String(a[0]??"").slice(0,N(a[1]??1)),RIGHT:(a)=>String(a[0]??"").slice(-N(a[1]??1)),MID:(a)=>String(a[0]??"").substr(N(a[1]??1)-1,N(a[2]??1)),TRIM:a=>String(a[0]??"").trim(),
+TODAY:()=>new Date().toLocaleDateString(),NOW:()=>new Date().toLocaleString(),DATE:a=>new Date(N(a[0]),N(a[1])-1,N(a[2])).toLocaleDateString(),
+YEAR:a=>new Date(a[0]).getFullYear()||new Date().getFullYear(),MONTH:a=>new Date(a[0]).getMonth()+1||new Date().getMonth()+1,DAY:a=>new Date(a[0]).getDate()||new Date().getDate(),WEEKDAY:a=>new Date(a[0]).getDay()+1||1,
+SUMIF:(a,ctx)=>{const[rng,crit,sumR]=a;const vals=toArr(rng,ctx),ss=sumR?toArr(sumR,ctx):vals;let t=0;vals.forEach((v,i)=>{if(matchCrit(v,crit))t+=N(ss[i]||0);});return t;},
+COUNTIF:(a,ctx)=>toArr(a[0],ctx).filter(v=>matchCrit(v,a[1])).length,
+VLOOKUP:(a,ctx)=>{const[k,tbl,col,ex]=a;const rows=toGrid(tbl,ctx);for(const row of rows){if(String(row[0])==String(k))return row[N(col)-1]??"#N/A";}return ex===false?"#N/A":"#N/A";},
+};
+function flatV(a,ctx){const out=[];for(const x of (a||[])){if(x&&x.__rng){for(let r=x.rs;r<=x.re;r++)for(let c=x.cs;c<=x.ce;c++)out.push(ctx(r,c));}else if(Array.isArray(x)){for(const y of x.flat(Infinity)){if(y&&y.__rng){for(let r=y.rs;r<=y.re;r++)for(let c=y.cs;c<=y.ce;c++)out.push(ctx(r,c));}else out.push(y);}}else out.push(x);}return out;}
+function isN(x){return x!==""&&x!=null&&!isNaN(Number(x))&&typeof x!=="boolean";}
+function N(x){if(Array.isArray(x))x=x[0];const n=Number(x);return isNaN(n)?0:n;}
+function isT(x){if(Array.isArray(x))x=x.flat()[0];return x===true||x==="TRUE"||(!(!x||x===0||x==="0"||x==="FALSE"||x==="false"));}
+function toArr(x,ctx){if(x&&x.__rng){const o=[];for(let r=x.rs;r<=x.re;r++)for(let c=x.cs;c<=x.ce;c++)o.push(ctx(r,c));return o;}return Array.isArray(x)?x.flat():[x];}
+function toGrid(x,ctx){if(x&&x.__rng){const g=[];for(let r=x.rs;r<=x.re;r++){const row=[];for(let c=x.cs;c<=x.ce;c++)row.push(ctx(r,c));g.push(row);}return g;}return [[x]];}
+function matchCrit(v,crit){crit=String(crit??"");let m=crit.match(/^(>=|<=|<>|>|<|=)(.*)$/);if(!m)return String(v)===crit;const op=m[1],t=Number(m[2]);const n=Number(v);const num=!isNaN(t)&&!isNaN(n);if(op===">")return num?n>t:String(v)>m[2];if(op==="<")return num?n<t:String(v)<m[2];if(op===">=")return num?n>=t:String(v)>=m[2];if(op==="<=")return num?n<=t:String(v)<=m[2];if(op==="<>"||op==="!=")return String(v)!==m[2];return String(v)===m[2];}
+function tokenize(s){const t=[];let i=0;while(i<s.length){const ch=s[i];if(/\s/.test(ch)){i++;continue;}if(ch==='"'){let j=i+1,out="";while(j<s.length&&s[j]!=='"'){out+=s[j];j++;}t.push({t:"str",v:out});i=j+1;continue;}if(/[0-9.]/.test(ch)){let j=i;while(j<s.length&&/[0-9.eE+\-]/.test(s[j])&&(j===i||/[0-9.eE]/.test(s[j])||((s[j]==="+"||s[j]==="-")&&/[eE]/.test(s[j-1]))))j++;const raw=s.slice(i,j);if(/^\d*\.?\d+(e[+-]?\d+)?$/i.test(raw)){t.push({t:"num",v:parseFloat(raw)});i=j;continue;}}if(/[A-Za-z_$]/.test(ch)){let j=i;while(j<s.length&&/[A-Za-z0-9_$\.]/.test(s[j]))j++;let w=s.slice(i,j);let k=j;while(k<s.length&&s[k]===" ")k++;if(s[k]==="("){t.push({t:"fn",v:w.toUpperCase()});}else t.push({t:"id",v:w});i=j;continue;}if(ch==="<"&&s[i+1]===">"){t.push({t:"op",v:"<>"});i+=2;continue;}if((ch==="<"||ch===">")&&s[i+1]==="="){t.push({t:"op",v:ch+"="});i+=2;continue;}if("+-*/%^&<>=(),:;!".includes(ch)){t.push({t:"op",v:ch});i++;continue;}if(ch==="("||ch===")"){t.push({t:ch});i++;continue;}i++;}return t;}
+let calcCache={},calcStack=[];
+function cellVal(r,c){const k=r+":"+c+":"+wb.active;if(calcCache[k]!==undefined)return calcCache[k];if(calcStack.includes(r+":"+c))return "#CYCLE!";calcStack.push(r+":"+c);const cell=getCell(r,c);let out="";if(cell){const v=cell.v;if(typeof v==="string"&&v.startsWith("=")){try{out=evalFormula(v.slice(1),r,c);}catch(e){out="#ERR!";}}else if(cell.s&&cell.s.numFmt==="date"&&typeof v==="number"){out=v;}else out=v;}calcStack.pop();calcCache[k]=out;return out;}
+function evalFormula(src,r0,c0){const toks=tokenize(src);let p=0;
+function peek(){return toks[p];}function next(){return toks[p++];}
+function parseExpr(){let v=parseConcat();while(peek()&&peek().t==="op"&&["=","<>","<",">","<=",">="].includes(peek().v)){const op=next().v;const b=parseConcat();v=cmp(v,op,b);}return v;}
+function parseConcat(){let v=parseAdd();while(peek()&&peek().t==="op"&&peek().v==="&"){next();const b=parseAdd();v=String(v??"")+String(b??"");}return v;}
+function parseAdd(){let v=parseMul();while(peek()&&peek().t==="op"&&(peek().v==="+"||peek().v==="-")){const op=next().v;const b=parseMul();v=op==="+"?N(v)+N(b):N(v)-N(b);}return v;}
+function parseMul(){let v=parsePow();while(peek()&&peek().t==="op"&&["*","/","%"].includes(peek().v)){const op=next().v;const b=parsePow();if(op==="*")v=N(v)*N(b);else if(op==="/")v=N(b)===0?"#DIV/0!":N(v)/N(b);else v=N(v)%N(b);}return v;}
+function parsePow(){let v=parseUn();while(peek()&&peek().t==="op"&&peek().v==="^"){next();const b=parseUn();v=Math.pow(N(v),N(b));}return v;}
+function parseUn(){if(peek()&&peek().t==="op"&&(peek().v==="-"||peek().v==="+")){const op=next().v;const v=parseUn();return op==="-"?-N(v):N(v);}return parsePrim();}
+function parsePrim(){const t=next();if(!t)return 0;if(t.t==="num")return t.v;if(t.t==="str")return t.v;if(t.t==="fn"){expect("(");const args=[];if(peek()&&!(peek().v===")")){args.push(parseExpr());while(peek()&&peek().t==="op"&&(peek().v===","||peek().v===";")){next();args.push(parseExpr());}}expect(")");return callFn(t.v,args);}if(t.t==="id"){let id=t.v;while(peek()&&peek().t==="op"&&peek().v==="!"){next();const s2=next();id+="!"+(s2?s2.v:"");}if(peek()&&peek().t==="op"&&peek().v===":"){next();const t2=next();const range=strToRange(id,t2?t2.v:"",r0,c0);if(range)return range;return 0;}const vv=refVal(id,r0,c0);return vv;}if(t.v==="("){const v=parseExpr();expect(")");return v;}return 0;}
+function expect(x){if(peek()&&(peek().t===x||peek().v===x))next();}
+const out=parseExpr();return resolveVal(out);
+}
+function resolveVal(v){if(v&&v.__rng){const r=v;const arr=[];for(let rr=r.rs;rr<=r.re;rr++)for(let cc=r.cs;cc<=r.ce;cc++)arr.push(cellVal(rr,cc));return arr.length===1?arr[0]:arr;}return v;}
+function strToRange(a,b,r0,c0){const A=normRef(a,r0,c0),B=normRef(b,r0,c0);if(!A||!B)return null;return{__rng:1,rs:Math.min(A.r,B.r),cs:Math.min(A.c,B.c),re:Math.max(A.r,B.r),ce:Math.max(A.c,B.c)};}
+function normRef(id,r0,c0){id=String(id).replace(/\$/g,"");if(id.startsWith("("))return null;const p=parseAddr(id);if(p)return p;return null;}
+function refVal(id,r0,c0){id=String(id).replace(/\$/g,"");const up=id.toUpperCase();if(up==="TRUE")return true;if(up==="FALSE")return false;const p=parseAddr(id);if(!p)return "#NAME?";if(p.r<0||p.c<0||p.r>=ROWS||p.c>=COLS)return 0;return cellVal(p.r,p.c);}
+function cmp(a,b,op){if(Array.isArray(a))a=a[0];if(Array.isArray(b))b=b[0];const an=Number(a),bn=Number(b);const num=!isNaN(an)&&!isNaN(bn)&&a!==""&&b!=="";let x=a,y=b;if(num){x=an;y=bn;}else{x=String(a??"");y=String(b??"");}if(op==="=")return x==y;if(op==="<>"||op==="!=")return x!=y;if(op===">")return x>y;if(op==="<")return x<y;if(op===">=")return x>=y;if(op==="<=")return x<=y;return false;}
+function callFn(name,args){const f=FN[name];if(!f)return "#NAME?";const ctx=(r,c)=>cellVal(r,c);const resolved=args.map(a=>{if(a&&a.__rng)return{__rng:1,...a};if(Array.isArray(a))return a;return a;});try{return f(resolved,ctx);}catch(e){return "#ERR!";}}
+function recalc(){calcCache={};calcStack=[];}
+/* ============ render ============ */
+const grid=$("#grid"),scroll=$("#scroll"),edit=$("#celledit");
+function inMerge(r,c){for(const m of S().merges){if(r>=m.rs&&r<=m.re&&c>=m.cs&&c<=m.ce)return m;}return null;}
+function isMergeHead(r,c){const m=inMerge(r,c);return m&&m.rs===r&&m.cs===c?m:null;}
+function dispVal(r,c){recalcSafe();return cellVal(r,c);}
+let recalcDone=false;function recalcSafe(){if(!recalcDone){recalc();recalcDone=true;}}
+function renderAll(){recalcDone=false;recalc();renderGrid();renderTabs();renderFormulaBar();renderStatus();save();}
+function styleOf(cell){const s=(cell&&cell.s)||{};let st="";if(s.bold)st+="font-weight:700;";if(s.italic)st+="font-style:italic;";if(s.underline)st+="text-decoration:underline;";if(s.strike)st+= (s.underline?"":"text-decoration:")+ (s.underline?" line-through":"line-through")+";";if(s.font)st+=`font-family:${s.font};`;if(s.size)st+=`font-size:${s.size}px;`;if(s.color)st+=`color:${s.color};`;if(s.bg)st+=`background:${s.bg};`;if(s.align)st+=`text-align:${s.align};`;if(s.border)st+=`box-shadow:inset 0 0 0 1px #111;`;return st;}
+function cfMatch(r,c,val){for(const rule of S().cf||[]){const rg=parseRange(rule.range||"");if(!rg)continue;if(r<rg.rs||r>rg.re||c<rg.cs||c>rg.ce)continue;const n=Number(val);if(rule.op==="gt"&&!(n>Number(rule.val)))continue;if(rule.op==="lt"&&!(n<Number(rule.val)))continue;if(rule.op==="eq"&&!(String(val)===String(rule.val)))continue;if(rule.op==="between"){const p=String(rule.val).split(",").map(Number);if(!(n>=p[0]&&n<=p[1]))continue;}return rule;}return null;}
+function renderGrid(){
+  const frag=document.createElement("tbody");const tbl=grid;tbl.innerHTML="";
+  // zoom
+  const z=Number($("#zoom").value);tbl.style.fontSize=(12*z/100)+"px";
+  // header row
+  const hr=document.createElement("tr");const corner=document.createElement("th");corner.className="corner";corner.textContent="⬢";corner.onclick=()=>{sel={r:0,c:0,rs:0,cs:0,re:ROWS-1,ce:COLS-1};paintSel();};hr.appendChild(corner);
+  for(let c=0;c<COLS;c++){const th=document.createElement("th");th.className="colh"+((c>=sel.cs&&c<=sel.ce)?" sel":"");th.textContent=colL(c);const w=S().colW[c];th.style.minWidth=(w||90)+"px";th.style.width=(w||90)+"px";th.dataset.c=c;
+    th.onmousedown=e=>{e.preventDefault();if(e.shiftKey){sel.ce=c;sel.rs=Math.min(sel.r,sel.rs);sel.re=Math.max(sel.r,sel.re);sel.cs=Math.min(sel.cs,c);}else{sel.c=c;sel.cs=c;sel.ce=c;sel.rs=0;sel.re=ROWS-1;}paintSel();};
+    th.oncontextmenu=e=>{colCtx(e,c);};hr.appendChild(th);}
+  frag.appendChild(hr);
+  const hiddenRows=hiddenByFilter();
+  for(let r=0;r<ROWS;r++){if(hiddenRows.has(r))continue;const tr=document.createElement("tr");
+    const rh=document.createElement("th");rh.className="rowh"+((r>=sel.rs&&r<=sel.re)?" sel":"");rh.textContent=r+1;const h=S().rowH[r];if(h)tr.style.height=h+"px";rh.dataset.r=r;
+    rh.onmousedown=e=>{e.preventDefault();if(e.shiftKey){sel.re=r;sel.cs=Math.min(sel.c,sel.cs);sel.ce=Math.max(sel.c,sel.ce);sel.rs=Math.min(sel.rs,r);}else{sel.r=r;sel.rs=r;sel.re=r;sel.cs=0;sel.ce=COLS-1;}paintSel();};
+    rh.oncontextmenu=e=>{rowCtx(e,r);};tr.appendChild(rh);
+    for(let c=0;c<COLS;c++){const m=inMerge(r,c);if(m&&!(m.rs===r&&m.cs===c))continue;
+      const td=document.createElement("td");td.dataset.r=r;td.dataset.c=c;td.className="cell";
+      const cell=getCell(r,c);let v=cell?cellVal(r,c):"";
+      if(cell&&typeof cell.v==="string"&&cell.v.startsWith("=")&&(v==="#ERR!"||v==="#DIV/0!"||v==="#NAME?"||v==="#CYCLE!"))td.classList.add("err");
+      let txt=v;const s=cell&&cell.s?cell.s:{};
+      if(typeof v==="number"||(isN(v)&&s.numFmt&&s.numFmt!=="general"))txt=fmtNum(v,s.numFmt||"general",s.dec);
+      else if(s.numFmt==="date"&&typeof v==="number")txt=fmtNum(v,"date");
+      else txt=(v??"");
+      if(typeof txt!=="string")txt=String(txt);
+      const cf=cfMatch(r,c,cellVal(r,c));let extra="";
+      if(cf)extra=`background:${cf.bg};color:${cf.fg};`;
+      td.setAttribute("style",(styleOf(cell)||"")+extra+(showGrid?"":"border-color:transparent;"));
+      if(s.wrap)td.classList.add("wrap");
+      const w=S().colW[c]||90;td.style.minWidth=w+"px";td.style.width=w+"px";
+      const mh=isMergeHead(r,c);if(mh){td.colSpan=(mh.ce-mh.cs+1);td.rowSpan=(mh.re-mh.rs+1);}
+      const note=S().notes[key(r,c)];const link=S().links[key(r,c)];
+      td.innerHTML=`<span class="cvin">${esc(txt)}${note?'<span style="color:red;float:right">◥</span>':""}</span>${cell&&cell.dropdown?'<span class="dd-arrow">▼</span>':""}`;
+      if(link)td.title=link;else if(note)td.title=note;
+      if(r>=sel.rs&&r<=sel.re&&c>=sel.cs&&c<=sel.ce)td.classList.add("inrange");
+      if(r===sel.r&&c===sel.c)td.classList.add("active");
+      if(clipboard&&inClip(r,c))td.classList.add("copied");
+      td.onmousedown=e=>{if(e.button!==0)return;cellMouse(e,r,c,td);};
+      td.ondblclick=()=>startEdit(false);
+      td.oncontextmenu=e=>{e.preventDefault();if(r<sel.rs||r>sel.re||c<sel.cs||c>sel.ce){sel={r,c,rs:r,cs:c,re:r,ce:c};paintSel();}openCtx(e);};
+      tr.appendChild(td);}
+    frag.appendChild(tr);}
+  tbl.appendChild(frag);
+  // frozen
+  $$(".colh").forEach((th,i)=>{if(i<frozenCols)th.style.left=(44+i*90)+"px";});
+  renderStatus();
+}
+function hiddenByFilter(){const s=new Set();if(!filterOn)return s;for(let r=1;r<ROWS;r++){let hide=false;for(const c in filterTxt){const q=(filterTxt[c]||"").toLowerCase();if(!q)continue;const v=String(cellVal(r,Number(c))??"").toLowerCase();if(!v.includes(q))hide=true;}if(hide)s.add(r);}return s;}
+function inClip(r,c){if(!clipboard)return false;const{rs,cs,re,ce}=clipboard.range;const dr=re-rs,dc=ce-cs;return r>=sel.rs&&r<=sel.rs+dr&&c>=sel.cs&&c<=sel.cs+dc;}
+function paintSel(){ // fast repaint without full rebuild for selection moves
+  renderGrid();renderFormulaBar();renderStatus();}
+function renderTabs(){const t=$("#sheetTabs");t.innerHTML="";wb.sheets.forEach((s,i)=>{const d=document.createElement("div");d.className="shtab"+(i===wb.active?" active":"");d.innerHTML=`<span class="dot" style="background:${s.color||"#217346"}"></span><span>${esc(s.name)}</span>`;d.onclick=()=>{wb.active=i;sel={r:0,c:0,rs:0,cs:0,re:0,ce:0};filterTxt={};renderAll();};d.ondblclick=()=>{const n=prompt("Rename sheet",s.name);if(n){s.name=n;renderAll();}};d.oncontextmenu=e=>{e.preventDefault();sheetCtx(e,i);};t.appendChild(d);});$("#stSheets").textContent=wb.sheets.length+" sheets • "+ROWS+"×"+COLS;}
+function renderFormulaBar(){$("#nameBox").value=addr(sel.r,sel.c)+(sel.rs!==sel.re||sel.cs!==sel.ce?` (${sel.re-sel.rs+1}×${sel.ce-sel.cs+1})`:"");const cell=getCell(sel.r,sel.c);$("#formulaInput").value=cell?String(cell.v??""):"";const v=cell?cellVal(sel.r,sel.c):"";$("#fstat").textContent=(typeof cell?.v==="string"&&cell.v.startsWith("="))?("= "+String(v)):"";}
+function renderStatus(){let vals=[];for(let r=sel.rs;r<=sel.re;r++)for(let c=sel.cs;c<=sel.ce;c++){const v=cellVal(r,c);if(isN(v))vals.push(Number(v));}$("#stAgg").textContent=vals.length?`Count ${vals.length} • Sum ${vals.reduce((a,b)=>a+b,0).toLocaleString()} • Avg ${(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2)}`:"";$("#stSel").textContent=`${addr(sel.rs,sel.cs)}:${addr(sel.re,sel.ce)}`;$("#stReady").textContent="Ready";const z=$("#zoom").value;$("#zoomLbl").textContent=z+"%";$("#stZoom").textContent=z+"%";}
+/* ============ selection & editing ============ */
+function cellMouse(e,r,c){if(e.shiftKey){sel.re=r;sel.ce=c;sel.rs=Math.min(sel.r,r);sel.cs=Math.min(sel.c,c);sel.re=Math.max(sel.r,r);sel.ce=Math.max(sel.c,c);}else{sel={r,c,rs:r,cs:c,re:r,ce:c};}paintSel();
+  // dropdown popup
+  const cell=getCell(r,c);if(cell&&cell.dropdown){showDD(r,c,cell.dropdown);}}
+let editing=false;
+function startEdit(withChar){const cell=getCell(sel.r,sel.c);const td=document.querySelector(`td[data-r="${sel.r}"][data-c="${sel.c}"]`);if(!td)return;editing=true;const rect=td.getBoundingClientRect(),sr=$("#scroll").getBoundingClientRect();edit.style.display="block";edit.style.left=(td.offsetLeft)+"px";edit.style.top=(td.offsetTop)+"px";edit.style.width=Math.max(td.offsetWidth,120)+"px";edit.style.height=Math.max(td.offsetHeight,26)+"px";edit.value=(typeof withChar==="string"?withChar:(cell?String(cell.v??""):""));edit.focus();if(!withChar)edit.select();else{edit.selectionStart=edit.value.length;}}
+function commitEdit(move){if(!editing)return;editing=false;edit.style.display="none";pushUndo();let v=edit.value;const r=sel.r,c=sel.c;setRaw(r,c,v);if(move==="down")sel.r=Math.min(ROWS-1,sel.r+1);if(move==="right")sel.c=Math.min(COLS-1,sel.c+1);sel.rs=sel.r;sel.re=sel.r;sel.cs=sel.c;sel.ce=sel.c;renderAll();}
+function cancelEdit(){editing=false;edit.style.display="none";}
+edit.addEventListener("keydown",e=>{e.stopPropagation();if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();commitEdit("down");}else if(e.key==="Enter"&&e.shiftKey){e.preventDefault();commitEdit(null);sel.r=Math.max(0,sel.r-1);sel.rs=sel.r;sel.re=sel.r;renderAll();}else if(e.key==="Tab"){e.preventDefault();commitEdit("right");}else if(e.key==="Escape"){cancelEdit();}});
+$("#formulaInput").addEventListener("keydown",e=>{if(e.key==="Enter"){pushUndo();setRaw(sel.r,sel.c,e.target.value);renderAll();}if(e.key==="Escape")renderFormulaBar();});
+$("#formulaInput").addEventListener("change",e=>{pushUndo();setRaw(sel.r,sel.c,e.target.value);renderAll();});
+$("#nameBox").addEventListener("keydown",e=>{if(e.key==="Enter"){const a=parseAddr(e.target.value);if(a){sel={r:a.r,c:a.c,rs:a.r,cs:a.c,re:a.r,ce:a.c};paintSel();scrollTo(sel.r,sel.c);}renderFormulaBar();}});
+function scrollTo(r,c){const td=document.querySelector(`td[data-r="${r}"][data-c="${c}"]`);if(td)td.scrollIntoView({block:"nearest",inline:"nearest"});}
+document.addEventListener("keydown",e=>{
+  if(edit.style.display==="block")return;
+  if(e.target.tagName==="INPUT"&&e.target.id!=="formulaInput"&&e.target.id!=="nameBox"||e.target.tagName==="TEXTAREA"||e.target.tagName==="SELECT")return;
+  const k=e.key;
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==="z"&&!e.shiftKey){e.preventDefault();doUndo();return;}
+  if((e.ctrlKey||e.metaKey)&&(k.toLowerCase()==="y"||(k.toLowerCase()==="z"&&e.shiftKey))){e.preventDefault();doRedo();return;}
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==="c"){e.preventDefault();doCopy(false);return;}
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==="x"){e.preventDefault();doCopy(true);return;}
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==="v"){e.preventDefault();doPaste();return;}
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==="s"){e.preventDefault();save(true);return;}
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==="f"){e.preventDefault();openOv("ovFind");return;}
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==="b"){e.preventDefault();applyStyle({bold:"t"});return;}
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==="i"){e.preventDefault();applyStyle({italic:"t"});return;}
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==="u"){e.preventDefault();applyStyle({underline:"t"});return;}
+  if(k==="F2"){e.preventDefault();startEdit(false);return;}
+  if(k==="Delete"||k==="Backspace"){if(document.activeElement===$("#formulaInput"))return;e.preventDefault();pushUndo();for(let r=sel.rs;r<=sel.re;r++)for(let c=sel.cs;c<=sel.ce;c++){const cell=getCell(r,c);if(cell){cell.v="";if(!cell.s||!Object.keys(cell.s).length)delete S().cells[key(r,c)];}}renderAll();return;}
+  if(k==="Enter"){e.preventDefault();if(e.shiftKey){sel.r=Math.max(0,sel.r-1);}else{sel.r=Math.min(ROWS-1,sel.r+1);}sel.rs=sel.r;sel.re=sel.r;sel.cs=sel.c;sel.ce=sel.c;paintSel();scrollTo(sel.r,sel.c);return;}
+  if(k==="Tab"){e.preventDefault();sel.c=Math.min(COLS-1,sel.c+(e.shiftKey?-1:1));sel.cs=sel.c;sel.ce=sel.c;sel.rs=sel.r;sel.re=sel.r;paintSel();scrollTo(sel.r,sel.c);return;}
+  if(k==="Escape"){closeCtx();cancelEdit();return;}
+  if(k.startsWith("Arrow")){e.preventDefault();let{r,c}=sel;if(k==="ArrowUp")r=Math.max(0,r-1);if(k==="ArrowDown")r=Math.min(ROWS-1,r+1);if(k==="ArrowLeft")c=Math.max(0,c-1);if(k==="ArrowRight")c=Math.min(COLS-1,c+1);
+    if(e.shiftKey){sel.re=r;sel.ce=c;sel.rs=Math.min(sel.r,r);sel.cs=Math.min(sel.c,c);sel.re=Math.max(sel.r,r);sel.ce=Math.max(sel.c,c);}else{sel={r,c,rs:r,cs:c,re:r,ce:c};}paintSel();scrollTo(sel.re??sel.r,sel.ce??sel.c);if(k==="ArrowUp"||k==="ArrowDown"){sel.r=r;sel.rs=e.shiftKey?sel.rs:r;sel.re=e.shiftKey?sel.re:r;}else{sel.c=c;sel.cs=e.shiftKey?sel.cs:c;sel.ce=e.shiftKey?sel.ce:c;}paintSel();return;}
+  if(k.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey){startEdit(k);edit.value=k;}
+});
+/* ============ styles ============ */
+function applyStyle(patch){pushUndo();for(let r=sel.rs;r<=sel.re;r++)for(let c=sel.cs;c<=sel.ce;c++){const k=key(r,c);const cell=S().cells[k]||(S().cells[k]={v:"",s:{}});cell.s=cell.s||{};for(const kk in patch){const v=patch[kk];if(kk==="bold"||kk==="italic"||kk==="underline"||kk==="strike"||kk==="border"||kk==="wrap"){cell.s[kk]=cell.s[kk]?null:true;if(!cell.s[kk])delete cell.s[kk];}else{if(cell.s[kk]===v)delete cell.s[kk];else cell.s[kk]=v;}}}renderAll();}
+$("#btnB").onclick=()=>applyStyle({bold:1});$("#btnI").onclick=()=>applyStyle({italic:1});$("#btnU").onclick=()=>applyStyle({underline:1});$("#btnS").onclick=()=>applyStyle({strike:1});
+$("#fontFam").onchange=e=>applyStyle({font:e.target.value});$("#fontSize").onchange=e=>applyStyle({size:Number(e.target.value)});
+$("#fontColor").onchange=e=>applyStyle({color:e.target.value});$("#btnFill").onclick=()=>applyStyle({bg:$("#fillColor").value});
+$("#fillColor").onchange=e=>applyStyle({bg:e.target.value});
+$("#alL").onclick=()=>applyStyle({align:"left"});$("#alC").onclick=()=>applyStyle({align:"center"});$("#alR").onclick=()=>applyStyle({align:"right"});
+$("#btnWrap").onclick=()=>applyStyle({wrap:1});$("#btnBorder").onclick=()=>applyStyle({border:1});
+$("#numFmt").onchange=e=>applyStyle({numFmt:e.target.value,dec:e.target.value==="currency"?2:undefined});
+$("#decUp").onclick=()=>{pushUndo();forEachSel((r,c,cell)=>{cell.s=cell.s||{};cell.s.dec=Math.min(6,(cell.s.dec??(cell.s.numFmt==="currency"?2:0))+1);cell.s.numFmt=cell.s.numFmt==="general"?"number":cell.s.numFmt;});renderAll();};
+$("#decDown").onclick=()=>{pushUndo();forEachSel((r,c,cell)=>{cell.s=cell.s||{};cell.s.dec=Math.max(0,(cell.s.dec??2)-1);});renderAll();};
+$("#btnClearFmt").onclick=()=>{pushUndo();forEachSel((r,c,cell)=>{cell.s={};});renderAll();};
+function forEachSel(fn){for(let r=sel.rs;r<=sel.re;r++)for(let c=sel.cs;c<=sel.ce;c++){const k=key(r,c);const cell=S().cells[k]||(S().cells[k]={v:"",s:{}});fn(r,c,cell);}}
+$("#btnMerge").onclick=()=>{pushUndo();const ex=inMerge(sel.rs,sel.cs);if(ex&&ex.rs===sel.rs&&ex.cs===sel.cs&&ex.re===sel.re&&ex.ce===sel.ce){S().merges=S().merges.filter(m=>m!==ex);}else{S().merges=S().merges.filter(m=>!(m.rs<=sel.re&&m.re>=sel.rs&&m.cs<=sel.ce&&m.ce>=sel.cs));if(sel.rs!==sel.re||sel.cs!==sel.ce)S().merges.push({rs:sel.rs,cs:sel.cs,re:sel.re,ce:sel.ce});}renderAll();};
+/* ============ clipboard ============ */
+function doCopy(cut){const data=[];for(let r=sel.rs;r<=sel.re;r++){const row=[];for(let c=sel.cs;c<=sel.ce;c++)row.push(clone(getCell(r,c)));data.push(row);}clipboard={data,range:{rs:sel.rs,cs:sel.cs,re:sel.re,ce:sel.ce}};clipCut=cut;try{navigator.clipboard.writeText(data.map(row=>row.map(x=>x?x.v:"").join("\t")).join("\n"));}catch{}toast(cut?"Cut":"Copied");renderGrid();}
+async function doPaste(){let ext="";try{ext=await navigator.clipboard.readText();}catch{}pushUndo();
+  if(clipboard){const{data}=clipboard;for(let i=0;i<data.length;i++)for(let j=0;j<data[i].length;j++){const r=sel.r+i,c=sel.c+j;if(r>=ROWS||c>=COLS)continue;if(data[i][j])S().cells[key(r,c)]=clone(data[i][j]);else delete S().cells[key(r,c)];}
+    if(clipCut){for(let r=clipboard.range.rs;r<=clipboard.range.re;r++)for(let c=clipboard.range.cs;c<=clipboard.range.ce;c++)delete S().cells[key(r,c)];clipboard=null;clipCut=false;}}
+  else if(ext){const rows=ext.split(/\r?\n/);rows.forEach((ln,i)=>{ln.split("\t").forEach((v,j)=>{setRaw(sel.r+i,sel.c+j,v);});});}
+  renderAll();}
+$("#btnCopy").onclick=()=>doCopy(false);$("#btnCut").onclick=()=>doCopy(true);$("#btnPaste").onclick=()=>doPaste();
+/* ============ rows/cols ============ */
+function shiftRows(at,delta){pushUndo();const nc={};for(const k in S().cells){const[r,c]=k.split(":").map(Number);if(delta>0&&r>=at)nc[(r+delta)+":"+c]=S().cells[k];else if(delta<0&&r>=at&&r<at-delta){}else if(delta<0&&r>=at-delta)nc[(r+delta)+":"+c]=S().cells[k];else nc[k]=S().cells[k];}S().cells=nc;if(delta>0)ROWS+=delta;renderAll();}
+$("#btnInsRow").onclick=()=>shiftRows(sel.rs,1);$("#btnDelRow").onclick=()=>shiftRows(sel.rs,-1);
+$("#btnInsCol").onclick=()=>{pushUndo();const nc={};for(const k in S().cells){let[r,c]=k.split(":").map(Number);if(c>=sel.cs)c++;nc[r+":"+c]=S().cells[k];}S().cells=nc;COLS++;renderAll();};
+$("#btnDelCol").onclick=()=>{pushUndo();const nc={};for(const k in S().cells){let[r,c]=k.split(":").map(Number);if(c===sel.cs)continue;if(c>sel.cs)c--;nc[r+":"+c]=S().cells[k];}S().cells=nc;COLS=Math.max(5,COLS-1);renderAll();};
+$("#btnFullRows").onclick=()=>{ROWS+=100;renderAll();};$("#btnFullCols").onclick=()=>{COLS+=10;renderAll();};
+function colCtx(e,c){e.preventDefault();openCtx(e,[["Insert column left",()=>$("#btnInsCol").click()],["Delete column",()=>{sel.cs=c;sel.ce=c;$("#btnDelCol").click();}],["Set width…",()=>{const w=prompt("Width px",S().colW[c]||90);if(w)S().colW[c]=Number(w),renderAll();}],["Sort A→Z",()=>sortBy(c,1)],["Sort Z→A",()=>sortBy(c,-1)]]);}
+function rowCtx(e,r){e.preventDefault();openCtx(e,[["Insert row above",()=>{sel.rs=r;shiftRows(r,1);}],["Delete row",()=>{sel.rs=r;shiftRows(r,-1);}],["Set height…",()=>{const h=prompt("Height px",S().rowH[r]||22);if(h)S().rowH[r]=Number(h),renderAll();}]]);}
+/* ============ sort/filter/fill ============ */
+function sortBy(c,dir){pushUndo();const{rs,cs,re,ce}=sel;const rows=[];for(let r=rs;r<=re;r++){const row=[];for(let cc=cs;cc<=ce;cc++)row.push(S().cells[key(r,cc)]||null);rows.push({r,row,k:cellVal(r,c)});}rows.sort((a,b)=>{const x=a.k,y=b.k;if(!isNaN(Number(x))&&!isNaN(Number(y)))return dir*(Number(x)-Number(y));return dir*String(x).localeCompare(String(y));});rows.forEach((o,i)=>{for(let cc=cs;cc<=ce;cc++){const v=o.row[cc-cs];if(v)S().cells[(rs+i)+":"+cc]=v;else delete S().cells[(rs+i)+":"+cc];}});renderAll();}
+$("#btnSortAZ").onclick=()=>sortBy(sel.c,1);$("#btnSortZA").onclick=()=>sortBy(sel.c,-1);$("#btnSortAZ2").onclick=()=>sortBy(sel.c,1);$("#btnSortZA2").onclick=()=>sortBy(sel.c,-1);
+$("#btnFilter").onclick=e=>{filterOn=!filterOn;if(filterOn){filterTxt={};const c=prompt("Filter: enter column letter to filter (e.g. B), empty = header row inputs");if(c){const ci=colI(c);const q=prompt("Show rows containing…");filterTxt[ci]=q||"";}}e.target.textContent=filterOn?"🎛 Filter: On":"🎛 Filter";renderAll();toast(filterOn?"Filter on — rows hidden by match":"Filter off");};
+$("#btnFreeze").onclick=e=>{frozenRows=frozenRows?0:1;e.target.textContent=frozenRows?"❄ Unfreeze":"❄ Freeze top row";toast(frozenRows?"Top row frozen":"Unfrozen");};
+$("#btnFreeze2").onclick=e=>{frozenCols=frozenCols?0:1;e.target.textContent=frozenCols?"1st col frozen":"Freeze 1st col";};
+$("#btnGridlines").onclick=e=>{showGrid=!showGrid;e.target.textContent="Gridlines: "+(showGrid?"On":"Off");renderAll();};
+$("#btnFillDown").onclick=()=>{pushUndo();for(let c=sel.cs;c<=sel.ce;c++){const v=getCell(sel.rs,c);for(let r=sel.rs+1;r<=sel.re;r++)S().cells[key(r,c)]=clone(v)||{v:""};}renderAll();};
+$("#btnFillRight").onclick=()=>{pushUndo();for(let r=sel.rs;r<=sel.re;r++){const v=getCell(r,sel.cs);for(let c=sel.cs+1;c<=sel.ce;c++)S().cells[key(r,c)]=clone(v)||{v:""};}renderAll();};
+$("#btnTrim").onclick=()=>{pushUndo();forEachSel((r,c,cell)=>{if(typeof cell.v==="string")cell.v=cell.v.trim().replace(/\s+/g," ");});renderAll();toast("Trimmed");};
+$("#btnDeDup").onclick=()=>{pushUndo();const seen=new Set();let n=0;for(let r=sel.rs;r<=sel.re;r++){const k0=[...Array(sel.ce-sel.cs+1)].map((_,i)=>String(cellVal(r,sel.cs+i))).join("‖");if(seen.has(k0)){for(let c=sel.cs;c<=sel.ce;c++)delete S().cells[key(r,c)];n++;}else seen.add(k0);}renderAll();toast(n?`Removed ${n} duplicates`:"No duplicates");};
+$("#btnValidate").onclick=()=>{const l=prompt("Allowed values, comma separated (creates dropdown):","Yes,No");if(l){pushUndo();forEachSel((r,c,cell)=>cell.dropdown=l.split(",").map(s=>s.trim()));renderAll();}};
+$("#btnDropdown").onclick=()=>$("#btnValidate").click();
+$("#btnLink").onclick=()=>{const u=prompt("Link URL:","https://");if(u){pushUndo();S().links[key(sel.r,sel.c)]=u;renderAll();}};
+$("#btnImageNote").onclick=()=>{const n=prompt("Cell note:",S().notes[key(sel.r,sel.c)]||"");if(n!==null){pushUndo();if(n)S().notes[key(sel.r,sel.c)]=n;else delete S().notes[key(sel.r,sel.c)];renderAll();}};
+$("#btnSymbol").onclick=()=>{const s=prompt("Symbol to insert:","★");if(s){pushUndo();const c=getCell(sel.r,sel.c);setRaw(sel.r,sel.c,(c?c.v:"")+s);renderAll();}};
+/* ============ find ============ */
+let lastFound=null;
+function openOv(id){$$(".overlay").forEach(o=>o.classList.remove("open"));$("#"+id).classList.add("open");}
+$$("[data-x]").forEach(b=>b.onclick=()=>b.closest(".overlay").classList.remove("open"));
+$$(".overlay").forEach(o=>o.addEventListener("mousedown",e=>{if(e.target===o)o.classList.remove("open");}));
+$("#btnFind").onclick=()=>openOv("ovFind");
+function findAll(q,match){const out=[];if(!q)return out;const qq=match?q:q.toLowerCase();for(const k in S().cells){const cell=S().cells[k];const[r,c]=k.split(":").map(Number);const vals=[String(cell.v??""),String(cellVal(r,c)??"")];if(vals.some(v=>match?v.includes(qq):v.toLowerCase().includes(qq)))out.push({r,c});}return out;}
+$("#btnFindNext").onclick=()=>{const q=$("#findWhat").value;const m=findAll(q,$("#findMatch").checked);$("#findCount").textContent=m.length+" matches";if(!m.length)return;lastFound=(lastFound??-1)+1;if(lastFound>=m.length)lastFound=0;const{r,c}=m[lastFound];sel={r,c,rs:r,cs:c,re:r,ce:c};paintSel();scrollTo(r,c);};
+$("#btnReplaceOne").onclick=()=>{if(lastFound==null)return $("#btnFindNext").click();const q=$("#findWhat").value,w=$("#findWith").value;pushUndo();const cell=getCell(sel.r,sel.c);if(cell)cell.v=String(cell.v).split(q).join(w);renderAll();};
+$("#btnReplaceAll").onclick=()=>{const q=$("#findWhat").value,w=$("#findWith").value;if(!q)return;pushUndo();let n=0;for(const k in S().cells){const cell=S().cells[k];if(typeof cell.v==="string"&&cell.v.includes(q)){cell.v=cell.v.split(q).join(w);n++;}}$("#findCount").textContent="Replaced "+n+" cells";renderAll();};
+/* ============ functions tab ============ */
+const ALLFN=["SUM","AVERAGE","MIN","MAX","COUNT","COUNTA","IF","AND","OR","NOT","ROUND","ABS","POWER","SQRT","CONCAT","UPPER","LOWER","LEN","LEFT","RIGHT","MID","TRIM","SUMIF","COUNTIF","VLOOKUP","TODAY","NOW","DATE"];
+$("#fnQuick").innerHTML=ALLFN.slice(0,6).map(f=>`<button class="btn sm" data-fn="${f}">${f}</button>`).join("");
+$$("#fnQuick [data-fn]").forEach(b=>b.onclick=()=>{insertFnBlank(b.dataset.fn);});
+function insertFnBlank(fn){pushUndo();setRaw(sel.r,sel.c,`=${fn}()`);renderAll();startEdit(false);}
+$("#btnAutoSum").onclick=()=>{let c=sel.c,r=sel.r;let top=r-1;while(top>=0&&isN(cellVal(top,c)))top--;const range=`${colL(c)}${top+2}:${colL(c)}${r}`;pushUndo();setRaw(r,c,`=SUM(${r===top+1?"0":range})`);renderAll();};
+$("#btnAvgF").onclick=()=>{pushUndo();setRaw(sel.r,sel.c,`=AVERAGE(${addr(sel.rs,sel.cs)}:${addr(sel.re,sel.ce)})`);renderAll();};
+$("#btnInsertFn").onclick=()=>{buildFnList("");openOv("ovFn");};
+function buildFnList(q){const l=$("#fnList");l.innerHTML="";ALLFN.filter(f=>f.includes(q.toUpperCase())).forEach(f=>{const o=document.createElement("option");o.value=f;o.textContent=f;l.appendChild(o);});fnHelp();}
+function fnHelp(){const f=$("#fnList").value||"SUM";const H={SUM:"=SUM(A1:A10) — adds numbers",AVERAGE:"=AVERAGE(A1:A10)",IF:'=IF(A1>10,"big","small")',VLOOKUP:"=VLOOKUP(key, A2:C20, 2) — first-col lookup",SUMIF:'=SUMIF(A1:A10,">5",B1:B10)',COUNTIF:'=COUNTIF(A1:A10,">5")',CONCAT:"=CONCAT(A1,B1,\" \")",LEFT:"=LEFT(A1,3) etc.",DATE:"=DATE(2026,1,15)"};$("#fnHelp").textContent=H[f]||("="+f+"(...) — see Help for syntax");}
+$("#fnSearch").oninput=e=>buildFnList(e.target.value);$("#fnList").onchange=fnHelp;
+$("#btnFnInsert2").onclick=()=>{const f=$("#fnList").value||"SUM";$("#ovFn").classList.remove("open");insertFnBlank(f);};
+/* ============ conditional formatting ============ */
+$("#btnCF").onclick=()=>{const r=`${addr(sel.rs,sel.cs)}:${addr(sel.re,sel.ce)}`;$("#cfRange").value=r;drawCF();openOv("ovCF");};
+$("#btnCFAdd").onclick=()=>{pushUndo();S().cf.push({range:$("#cfRange").value,op:$("#cfOp").value,val:$("#cfVal").value,bg:$("#cfBg").value,fg:$("#cfFg").value});drawCF();renderAll();};
+function drawCF(){$("#cfList").innerHTML=(S().cf||[]).map((r,i)=>`<div>${i+1}. ${esc(r.range)} ${esc(r.op)} ${esc(r.val)} <button data-i="${i}">✕</button></div>`).join("")||"<i>No rules</i>";$$("#cfList button").forEach(b=>b.onclick=()=>{S().cf.splice(Number(b.dataset.i),1);drawCF();renderAll();});}
+/* ============ chart ============ */
+$("#btnChart").onclick=()=>{$("#chartRange").value=`${addr(sel.rs,sel.cs)}:${addr(sel.re,sel.ce)}`;drawChart();openOv("ovChart");};
+$("#btnChartDraw").onclick=drawChart;
+function chartData(){const rg=parseRange($("#chartRange").value||"A1:A5");if(!rg)return{labels:[],vals:[]};const labels=[],vals=[];for(let r=rg.rs;r<=rg.re;r++)for(let c=rg.cs;c<=rg.ce;c++){if(rg.cs===rg.ce){labels.push(addr(r,c));vals.push(Number(cellVal(r,c))||0);}else{if(c===rg.cs)labels.push(String(cellVal(r,c)));else if(c===rg.cs+1)vals.push(Number(cellVal(r,c))||0);}}return{labels,vals};}
+function drawChart(){const cv=$("#chartCanvas"),ctx=cv.getContext("2d");const{labels,vals}=chartData();const type=$("#chartType").value;ctx.clearRect(0,0,cv.width,cv.height);ctx.fillStyle="#fff";ctx.fillRect(0,0,cv.width,cv.height);if(!vals.length){ctx.fillStyle="#666";ctx.fillText("No numeric data in range",20,40);return;}const max=Math.max(...vals,1);ctx.fillStyle="#111";ctx.font="12px sans-serif";
+if(type==="pie"){let tot=vals.reduce((a,b)=>a+b,0)||1;let a0=0;const cols=["#217346","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#06b6d4"];vals.forEach((v,i)=>{const a1=a0+v/tot*Math.PI*2;ctx.beginPath();ctx.moveTo(260,150);ctx.arc(260,150,110,a0,a1);ctx.fillStyle=cols[i%cols.length];ctx.fill();a0=a1;ctx.fillStyle="#111";ctx.fillText(String(labels[i]||"").slice(0,12),10,20+i*16);});}
+else{const bw=Math.min(60,(cv.width-80)/vals.length-8);vals.forEach((v,i)=>{const h=(v/max)*200;const x=50+i*(bw+10);const y=270-h;ctx.fillStyle="#217346";if(type==="bar")ctx.fillRect(x,y,bw,h);else{ctx.fillRect(x-2,y-2,5,5);if(i){const px=50+(i-1)*(bw+10)+bw/2,py=270-(vals[i-1]/max)*200;ctx.strokeStyle="#217346";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(x+bw/2,y);ctx.stroke();}}ctx.fillStyle="#333";ctx.fillText(String(labels[i]||i).slice(0,8),x,285);ctx.fillText(String(v),x,y-4);});ctx.strokeStyle="#ccc";ctx.beginPath();ctx.moveTo(40,10);ctx.lineTo(40,270);ctx.lineTo(510,270);ctx.stroke();}}
+$("#btnChartPng").onclick=()=>{const a=document.createElement("a");a.download="chart.png";a.href=$("#chartCanvas").toDataURL();a.click();};
+/* ============ sheets ============ */
+$("#sheetAdd").onclick=()=>{pushUndo();wb.sheets.push(newSheet());wb.active=wb.sheets.length-1;sel={r:0,c:0,rs:0,cs:0,re:0,ce:0};renderAll();};
+$("#sheetLeft").onclick=()=>{if(wb.active>0){wb.active--;renderAll();}};
+$("#sheetRight").onclick=()=>{if(wb.active<wb.sheets.length-1){wb.active++;renderAll();}};
+$("#sheetMenu").onclick=e=>{openCtx(e,[["Rename",()=>{const n=prompt("Name",S().name);if(n){S().name=n;renderAll();}}],["Duplicate",()=>{pushUndo();const c=clone(S());c.name=S().name+" copy";wb.sheets.splice(wb.active+1,0,c);renderAll();}],["Set color…",()=>{const c=prompt("Color (e.g. red, #217346)","#217346");if(c){S().color=c;renderAll();}}],["Delete (keep ≥1)",()=>{if(wb.sheets.length<=1)return toast("Need ≥1 sheet");pushUndo();wb.sheets.splice(wb.active,1);wb.active=0;renderAll();}],[ "Clear sheet",()=>{pushUndo();Object.assign(S(),newSheet(S().name));renderAll();}]]);};
+function sheetCtx(e,i){wb.active=i;renderTabs();openCtx(e,[["Rename",()=>{const n=prompt("Name",S().name);if(n){S().name=n;renderAll();}}],["Duplicate",()=>{pushUndo();const c=clone(S());c.name=S().name+" copy";wb.sheets.splice(i+1,0,c);renderAll();}],["Delete",()=>{if(wb.sheets.length<=1)return toast("Need ≥1 sheet");pushUndo();wb.sheets.splice(i,1);wb.active=0;renderAll();}]]);}
+/* ============ context menu ============ */
+const ctx=$("#ctx");
+function openCtx(e,items){e.preventDefault();ctx.innerHTML="";const def=items||[["Cut",()=>doCopy(true)],["Copy",()=>doCopy(false)],["Paste",()=>doPaste()],"—",["Bold",()=>applyStyle({bold:1})],["Clear contents",()=>{pushUndo();for(let r=sel.rs;r<=sel.re;r++)for(let c=sel.cs;c<=sel.ce;c++)delete S().cells[key(r,c)];renderAll();}],["Insert row above",()=>shiftRows(sel.rs,1)],["Delete row",()=>shiftRows(sel.rs,-1)],"—",[`Sort A→Z`,()=>sortBy(sel.c,1)],[`Sort Z→A`,()=>sortBy(sel.c,-1)],["Chart…",()=>$("#btnChart").click()]];
+def.forEach(it=>{if(it==="—"){ctx.appendChild(document.createElement("hr"));return;}const b=document.createElement("button");b.textContent=it[0];b.onclick=()=>{closeCtx();it[1]();};ctx.appendChild(b);});
+ctx.style.display="block";ctx.style.left=Math.min(innerWidth-200,e.clientX)+"px";ctx.style.top=Math.min(innerHeight-300,e.clientY)+"px";}
+function closeCtx(){ctx.style.display="none";$("#ddlist").style.display="none";}
+document.addEventListener("click",e=>{if(!ctx.contains(e.target))closeCtx();});
+function showDD(r,c,opts){const dd=$("#ddlist");dd.innerHTML="";opts.forEach(o=>{const b=document.createElement("button");b.textContent=o;b.onclick=()=>{pushUndo();setRaw(r,c,o);renderAll();closeCtx();};dd.appendChild(b);});const td=document.querySelector(`td[data-r="${r}"][data-c="${c}"]`);if(!td)return;const rc=td.getBoundingClientRect();dd.style.display="block";dd.style.left=rc.left+"px";dd.style.top=(rc.bottom+2)+"px";}
+/* ============ tabs ============ */
+$$("#rtabs .rtab").forEach(b=>b.onclick=()=>{$$("#rtabs .rtab").forEach(x=>x.classList.remove("active"));$$(".rpanel").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelector(`.rpanel[data-p="${b.dataset.t}"]`).classList.add("active");});
+/* ============ zoom/dark ============ */
+$("#zoom").oninput=renderGrid;
+$("#btnDark").onclick=e=>{dark=!dark;document.body.style.filter=dark?"invert(1) hue-rotate(180deg)":"";e.target.textContent=dark?"☀ Light":"🌙 Dark";};
+/* ============ IO & persistence ============ */
+function save(loud){try{localStorage.setItem("gridworks-wb",JSON.stringify({wb,ROWS,COLS}));if(loud)toast("Saved ✓");$("#stReady").textContent="Saved "+new Date().toLocaleTimeString();}catch{}}
+function load(){try{const raw=localStorage.getItem("gridworks-wb");if(raw){const o=JSON.parse(raw);if(o.wb&&o.wb.sheets&&o.wb.sheets.length){wb=o.wb;ROWS=o.ROWS||120;COLS=o.COLS||30;$("#fileName").value=wb.name||"Untitled workbook";return;}}}catch{}seed();}
+function seed(){wb={name:"Untitled workbook",sheets:[newSheet("Sheet1"),newSheet("Budget"),newSheet("Grades")],active:0};
+S().colW={0:150,1:110,2:110,3:110};setRaw(0,0,"Item");setRaw(0,1,"Qty");setRaw(0,2,"Price");setRaw(0,3,"Total");
+const items=[["Apples",10,1.2],["Bread",4,2.5],["Milk",6,1.8],["Cheese",2,8.5]];
+items.forEach((it,i)=>{setRaw(i+1,0,it[0]);setRaw(i+1,1,it[1]);setRaw(i+1,2,it[2]);setRaw(i+1,3,`=(B${i+2}*C${i+2})`);});
+setRaw(5,0,"TOTAL");setRaw(5,3,"=SUM(D2:D5)");setRaw(6,0,"Tip: try =IF(D6>50,\"big\",\"small\")");
+const h=S().cells[key(0,0)];for(let c=0;c<4;c++){const cell=S().cells[key(0,c)]||(S().cells[key(0,c)]={v:"",s:{}});cell.s={bold:true,bg:"#217346",color:"#fff",align:"center"};}
+wb.active=1;const b=S();b.colW={0:140,1:110,2:110};[["Month","Income","Spent"],["Jan",3000,2200],["Feb",3200,2400],["Mar",3100,2100]].forEach((row,r)=>row.forEach((v,c)=>setRaw(r,c,v)));setRaw(4,0,"Balance");setRaw(4,1,"=SUM(B2:B4)-SUM(C2:C4)");
+wb.active=2;const g=S();[["Name","Score","Grade"],["Ava",92,"=IF(B2>=90,\"A\",IF(B2>=80,\"B\",\"C\"))"],["Liam",78,"=IF(B3>=90,\"A\",IF(B3>=80,\"B\",\"C\"))"],["Mia",85,"=IF(B4>=90,\"A\",IF(B4>=80,\"B\",\"C\"))"]].forEach((row,r)=>row.forEach((v,c)=>setRaw(r,c,v)));
+wb.active=0;}
+$("#fileName").oninput=e=>{wb.name=e.target.value;save();};
+$("#btnSave").onclick=()=>save(true);
+$("#btnUndoTop").onclick=doUndo;$("#btnRedoTop").onclick=doRedo;$("#btnHelpTop").onclick=()=>openOv("ovHelp");
+function dl(name,content,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();}
+function toCSV(){recalc();const rows=[];for(let r=0;r<ROWS;r++){const row=[];let empty=true;for(let c=0;c<COLS;c++){const v=cellVal(r,c);if(v!==""&&v!=null)empty=false;row.push(/[,\"\n]/.test(String(v??""))?'"'+String(v).replace(/"/g,'""')+'"':String(v??""));}if(empty&&r>20)continue;rows.push(row.join(","));}return rows.join("\n");}
+$("#btnExportCSV").onclick=()=>dl(wb.name+".csv",toCSV(),"text/csv");
+$("#btnExportJSON").onclick=()=>dl(wb.name+".json",JSON.stringify(wb,null,2),"application/json");
+$("#btnImportCSV").onclick=()=>{const f=$("#filePick");f.accept=".csv,.txt";f.onchange=()=>{const file=f.files[0];if(!file)return;const rd=new FileReader();rd.onload=()=>{pushUndo();const lines=String(rd.result).split(/\r?\n/);lines.forEach((ln,r)=>{if(r>=ROWS)return;let cur="",inQ=false,row=[];for(let i=0;i<ln.length;i++){const ch=ln[i];if(ch==='"'){if(inQ&&ln[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}else if(ch===","&&!inQ){row.push(cur);cur="";}else cur+=ch;}row.push(cur);row.forEach((v,c)=>{if(c<COLS)setRaw(sel.rs+r,sel.cs+c,v);});});f.value="";renderAll();};rd.readAsText(file);};f.click();};
+$("#btnImportJSON").onclick=()=>{const f=$("#filePick");f.accept=".json";f.onchange=()=>{const file=f.files[0];if(!file)return;const rd=new FileReader();rd.onload=()=>{try{pushUndo();const o=JSON.parse(rd.result);if(o.sheets){wb=o;wb.active=0;}else{S().cells={};Object.entries(o).forEach(([k,v])=>S().cells[k]={v});}renderAll();}catch{toast("Bad JSON");}};rd.readAsText(file);};f.click();};
+$("#btnPrint").onclick=()=>window.print();
+/* ============ mobile: ribbon toggle + nav bar + touch ============ */
+(function(){
+  const isMobile=()=>matchMedia("(max-width:820px)").matches;
+  const tg=$("#ribbonToggle");
+  function syncTg(){tg.textContent=document.body.classList.contains("ribbon-collapsed")?"▼":"▲";}
+  tg.onclick=()=>{document.body.classList.toggle("ribbon-collapsed");syncTg();};
+  if(isMobile())document.body.classList.add("ribbon-collapsed");
+  syncTg();
+  window.addEventListener("resize",()=>{if(!isMobile())document.body.classList.remove("ribbon-collapsed");syncTg();});
+  function move(dr,dc){const r=Math.min(ROWS-1,Math.max(0,sel.r+dr)),c=Math.min(COLS-1,Math.max(0,sel.c+dc));sel={r,c,rs:r,cs:c,re:r,ce:c};paintSel();scrollTo(r,c);}
+  document.querySelectorAll("#mobileBar button").forEach(b=>b.onclick=()=>{
+    const m=b.dataset.m;
+    if(m==="left")move(0,-1);else if(m==="right")move(0,1);else if(m==="up")move(-1,0);else if(m==="down")move(1,0);
+    else if(m==="tab")move(0,1);else if(m==="edit")startEdit(false);
+    else if(m==="sum")$("#btnAutoSum").click();
+    else if(m==="menu"){const r=scrollIntoViewCenter();openCtx({preventDefault(){},clientX:innerWidth-240,clientY:innerHeight-320});}
+  });
+  function scrollIntoViewCenter(){scrollTo(sel.r,sel.c);return sel;}
+  // --- touch gestures on grid: tap select, double-tap edit, long-press menu ---
+  const sc=$("#scroll");let tS=null,lpTimer=null,lastTap={t:0,r:-1,c:-1};
+  function cellFromEvent(e){const t=e.target.closest?e.target.closest("td.cell"):null;if(!t)return null;return{r:Number(t.dataset.r),c:Number(t.dataset.c),el:t};}
+  function synth(e){const t=e.touches&&e.touches[0]||e.changedTouches&&e.changedTouches[0];return t?{clientX:t.clientX,clientY:t.clientY,preventDefault:()=>{}}:{clientX:innerWidth/2,clientY:innerHeight/2,preventDefault(){}};}
+  grid.addEventListener("touchstart",e=>{
+    const cell=cellFromEvent(e);if(!cell)return;
+    tS={r:cell.r,c:cell.c,x:e.touches[0].clientX,y:e.touches[0].clientY,moved:false};
+    clearTimeout(lpTimer);
+    lpTimer=setTimeout(()=>{
+      if(tS&&!tS.moved){
+        sel={r:tS.r,c:tS.c,rs:Math.min(sel.r,tS.r),cs:Math.min(sel.c,tS.c),re:Math.max(sel.r,tS.r),ce:Math.max(sel.c,tS.c)};
+        if(sel.rs===sel.re&&sel.cs===sel.ce)sel={r:tS.r,c:tS.c,rs:tS.r,cs:tS.c,re:tS.r,ce:tS.c};
+        paintSel();
+        try{navigator.vibrate&&navigator.vibrate(30);}catch{}
+        const p=synth(e);
+        openCtx({preventDefault(){},clientX:Math.min(innerWidth-240,p.clientX),clientY:Math.min(innerHeight-340,p.clientY)},
+          [["✏️ Edit cell",()=>startEdit(false)],["Extend selection here",()=>{sel.re=tS.r;sel.ce=tS.c;sel.rs=Math.min(sel.r,tS.r);sel.cs=Math.min(sel.c,tS.c);sel.re=Math.max(sel.r,tS.r);sel.ce=Math.max(sel.c,tS.c);paintSel();}],"—",["Cut",()=>doCopy(true)],["Copy",()=>doCopy(false)],["Paste",()=>doPaste()],"—",["Bold",()=>applyStyle({bold:1})],["Clear contents",()=>{pushUndo();delete S().cells[key(tS.r,tS.c)];renderAll();}]]);
+        tS.long=true;
+      }
+    },550);
+  },{passive:true});
+  grid.addEventListener("touchmove",e=>{
+    if(!tS)return;const t=e.touches[0];
+    if(Math.abs(t.clientX-tS.x)>10||Math.abs(t.clientY-tS.y)>10){tS.moved=true;clearTimeout(lpTimer);}
+  },{passive:true});
+  grid.addEventListener("touchend",e=>{
+    clearTimeout(lpTimer);
+    if(!tS)return;
+    const wasLong=tS.long;const{r,c,moved}=tS;tS=null;
+    if(wasLong){e.preventDefault();return;}
+    if(moved)return; // was a scroll
+    const now=Date.now();
+    if(lastTap.r===r&&lastTap.c===c&&(now-lastTap.t)<320){ // double-tap -> edit
+      sel={r,c,rs:r,cs:c,re:r,ce:c};paintSel();startEdit(false);lastTap={t:0,r:-1,c:-1};
+    }else{
+      sel={r,c,rs:r,cs:c,re:r,ce:c};paintSel();lastTap={t:now,r,c};
+      const cell=getCell(r,c);if(cell&&cell.dropdown)showDD(r,c,cell.dropdown);
+    }
+  },{passive:false});
+  // column/row header touch: basic tap works via mousedown emulation; enlarge via CSS only
+  // keep formula bar usable when iOS keyboard opens
+  if(window.visualViewport)visualViewport.addEventListener("resize",()=>{const td=document.querySelector(`td[data-r="${sel.r}"][data-c="${sel.c}"]`);if(td&&document.activeElement===$("#formulaInput"))td.scrollIntoView({block:"nearest"});});
+})();
+/* ============ init ============ */
+load();buildFnList("");renderAll();
+setInterval(()=>save(false),15000);
+window.addEventListener("beforeunload",()=>save(false));
+</script>
+</body>
+</html>
